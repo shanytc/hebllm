@@ -105,6 +105,7 @@ python -c "import transformers; print(f'Transformers: {transformers.__version__}
 
 Generate synthetic PDF pages with Hebrew/English text:
 
+**Linux/macOS:**
 ```bash
 # Basic: 100 samples
 ./scripts/generate_data.sh
@@ -115,6 +116,19 @@ Generate synthetic PDF pages with Hebrew/English text:
 # Custom distribution (environment variables)
 HEBREW_PCT=0.5 ENGLISH_PCT=0.3 MIXED_PCT=0.2 \
   ./scripts/generate_data.sh 5000 ./training_data
+```
+
+**Windows (PowerShell):**
+```powershell
+# Basic: 100 samples
+.\scripts\generate_data.ps1
+
+# Custom: 1000 samples to specific directory
+.\scripts\generate_data.ps1 -NumSamples 1000 -OutputDir ./training_data
+
+# Custom distribution (environment variables)
+$env:HEBREW_PCT="0.5"; $env:ENGLISH_PCT="0.3"; $env:MIXED_PCT="0.2"
+.\scripts\generate_data.ps1 -NumSamples 5000 -OutputDir ./training_data
 ```
 
 **Output structure:**
@@ -131,6 +145,7 @@ training_data/
 
 Train with curriculum learning (3 stages):
 
+**Linux/macOS:**
 ```bash
 # Default: Florence-2 base model
 ./scripts/train.sh florence2 ./training_data ./output
@@ -139,8 +154,18 @@ Train with curriculum learning (3 stages):
 ./scripts/train.sh qwen2-vl-2b ./training_data ./output
 ```
 
+**Windows (PowerShell):**
+```powershell
+# Default: Florence-2 base model
+.\scripts\train.ps1 -Model florence2 -DataDir ./training_data -OutputDir ./output
+
+# Qwen2-VL (better Hebrew, larger model)
+.\scripts\train.ps1 -Model qwen2-vl-2b -DataDir ./training_data -OutputDir ./output
+```
+
 **Custom training parameters:**
 
+**Linux/macOS:**
 ```bash
 EPOCHS=50 \
 BATCH_SIZE=8 \
@@ -149,6 +174,13 @@ LORA_RANK=32 \
 STAGE1_EPOCHS=5 \
 STAGE2_EPOCHS=15 \
   ./scripts/train.sh florence2 ./training_data ./output
+```
+
+**Windows (PowerShell):**
+```powershell
+$env:EPOCHS="50"; $env:BATCH_SIZE="8"; $env:LR="1e-4"
+$env:LORA_RANK="32"; $env:STAGE1_EPOCHS="5"; $env:STAGE2_EPOCHS="15"
+.\scripts\train.ps1 -Model florence2 -DataDir ./training_data -OutputDir ./output
 ```
 
 | Parameter | Default | Description |
@@ -164,11 +196,13 @@ STAGE2_EPOCHS=15 \
 **GPU control:**
 
 ```bash
-# Enable GPU (default)
-USE_GPU=true ./scripts/train.sh florence2 ./training_data ./output
+# Linux/macOS
+USE_GPU=true ./scripts/train.sh florence2 ./training_data ./output   # Enable GPU (default)
+USE_GPU=false ./scripts/train.sh florence2 ./training_data ./output  # Disable GPU
 
-# Disable GPU (CPU only)
-USE_GPU=false ./scripts/train.sh florence2 ./training_data ./output
+# Windows (PowerShell)
+$env:USE_GPU="true"; .\scripts\train.ps1 -Model florence2 -DataDir ./training_data -OutputDir ./output
+$env:USE_GPU="false"; .\scripts\train.ps1 -Model florence2 -DataDir ./training_data -OutputDir ./output
 
 # Or use train.py directly with --gpu / --no-gpu flags
 python training/train.py --train-data ./data --gpu       # Use GPU
@@ -236,12 +270,22 @@ text = pipeline('document.pdf')
 
 ### 4. Evaluate Model
 
+**Linux/macOS:**
 ```bash
 # Generate test data
 ./scripts/generate_data.sh 100 ./test_data
 
 # Run evaluation
 ./scripts/evaluate.sh ./output/best_model ./test_data
+```
+
+**Windows (PowerShell):**
+```powershell
+# Generate test data
+.\scripts\generate_data.ps1 -NumSamples 100 -OutputDir ./test_data
+
+# Run evaluation
+.\scripts\evaluate.ps1 -ModelPath ./output/best_model -TestData ./test_data
 ```
 
 ---
@@ -277,9 +321,12 @@ hebllm/
 │   ├── pipeline.py       # Inference API
 │   └── postprocess.py    # Text post-processing
 ├── scripts/
-│   ├── generate_data.sh  # Data generation script
-│   ├── train.sh          # Training script
-│   └── evaluate.sh       # Evaluation script
+│   ├── generate_data.sh  # Data generation (Linux/macOS)
+│   ├── generate_data.ps1 # Data generation (Windows)
+│   ├── train.sh          # Training (Linux/macOS)
+│   ├── train.ps1         # Training (Windows)
+│   ├── evaluate.sh       # Evaluation (Linux/macOS)
+│   └── evaluate.ps1      # Evaluation (Windows)
 ├── hebmark.py            # HebMark marker system
 ├── hebrew_box_detector.py # Hebrew text detection
 ├── setup_env.sh          # Environment setup (Linux/macOS)
