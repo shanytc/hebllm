@@ -563,7 +563,17 @@ def main():
 
     # Setup Windows compiler for torch.compile() if needed
     if args.compile:
-        setup_windows_compiler()
+        if platform.system() == "Windows":
+            print("")
+            print("=" * 60)
+            print("WARNING: --compile has limited support on Windows")
+            print("Triton (required for GPU compilation) doesn't support Windows.")
+            print("Disabling --compile. Other optimizations still active.")
+            print("=" * 60)
+            print("")
+            args.compile = False
+        else:
+            setup_windows_compiler()
 
     # Create config
     experiment_name = args.name or f"hebllm_{args.model}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
