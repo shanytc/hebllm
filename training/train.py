@@ -14,7 +14,8 @@ import os
 import platform
 import subprocess
 import sys
-from datetime import datetime
+import time
+from datetime import datetime, timedelta
 from pathlib import Path
 
 import torch
@@ -310,8 +311,15 @@ class HebLLMTrainer:
 
         total_loss = 0
         num_batches = 0
+        total_batches = len(train_loader)
+
+        # Timing
+        epoch_start_time = time.time()
+        batch_times = []
 
         for batch_idx, batch in enumerate(train_loader):
+            batch_start_time = time.time()
+
             # Move batch to device
             images = batch["images"].to(self.device)
             prompts = batch["prompts"]
@@ -353,11 +361,24 @@ class HebLLMTrainer:
             total_loss += loss.item() * self.config.training.gradient_accumulation_steps
             num_batches += 1
 
+            # Track batch time
+            batch_time = time.time() - batch_start_time
+            batch_times.append(batch_time)
+
             # Logging
             if batch_idx % self.config.training.logging_steps == 0:
                 avg_loss = total_loss / num_batches
                 lr = self.optimizer.param_groups[0]["lr"]
-                print(f"  Step {batch_idx}/{len(train_loader)} | Loss: {avg_loss:.4f} | LR: {lr:.2e}")
+                avg_batch_time = sum(batch_times[-10:]) / len(batch_times[-10:])  # Last 10 batches
+                remaining_batches = total_batches - batch_idx - 1
+                eta_seconds = remaining_batches * avg_batch_time
+                eta_str = str(timedelta(seconds=int(eta_seconds)))
+                print(f"  Step {batch_idx}/{total_batches} | Loss: {avg_loss:.4f} | LR: {lr:.2e} | {avg_batch_time:.2f}s/batch | ETA: {eta_str}")
+
+        # Epoch timing
+        epoch_time = time.time() - epoch_start_time
+        avg_batch_time = sum(batch_times) / len(batch_times) if batch_times else 0
+        print(f"  Epoch time: {timedelta(seconds=int(epoch_time))} | Avg: {avg_batch_time:.2f}s/batch")
 
         avg_epoch_loss = total_loss / num_batches
         return avg_epoch_loss
