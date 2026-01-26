@@ -55,6 +55,14 @@ python inference/pipeline.py document.pdf --model ./output/best_model
 - CUDA (optional, for GPU training)
 - Note: GPU (CUDA/MPS) recommended for training; CPU works but is slow
 
+### Platform Support
+
+| Platform | GPU Support | Flash Attention |
+|----------|-------------|-----------------|
+| Linux | CUDA (NVIDIA) | ✅ Auto-installed |
+| Windows | CUDA (NVIDIA) | ❌ Uses SDPA instead |
+| macOS | MPS (Apple Silicon) | ❌ Uses MPS instead |
+
 ### Setup Virtual Environment
 
 **Linux/macOS:**

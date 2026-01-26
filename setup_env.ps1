@@ -104,6 +104,11 @@ if ($nvidiaSmi) {
 Write-Host "Installing dependencies..."
 & pip install -r requirements.txt --ignore-installed torch
 
+# Note about Flash Attention on Windows
+Write-Host ""
+Write-Host "Note: Flash Attention is not supported on Windows." -ForegroundColor Yellow
+Write-Host "Training will use SDPA attention instead (similar performance)." -ForegroundColor Yellow
+
 # Install package in development mode (if setup.py or pyproject.toml exists)
 if ((Test-Path "setup.py") -or (Test-Path "pyproject.toml")) {
     Write-Host "Installing package in development mode..."
