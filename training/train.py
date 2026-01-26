@@ -11,11 +11,66 @@ Implements curriculum learning with three stages:
 import argparse
 import json
 import os
+import platform
+import subprocess
 import sys
 from datetime import datetime
 from pathlib import Path
 
 import torch
+
+
+def setup_windows_compiler():
+    """Auto-detect and setup Visual Studio cl.exe on Windows for torch.compile()."""
+    if platform.system() != "Windows":
+        return True
+
+    # Check if cl.exe is already in PATH
+    try:
+        subprocess.run(["cl"], capture_output=True, check=False)
+        return True
+    except FileNotFoundError:
+        pass
+
+    print("Searching for Visual Studio cl.exe...")
+
+    # Common VS installation paths
+    vs_paths = [
+        r"C:\Program Files\Microsoft Visual Studio\2022\Community",
+        r"C:\Program Files\Microsoft Visual Studio\2022\Professional",
+        r"C:\Program Files\Microsoft Visual Studio\2022\Enterprise",
+        r"C:\Program Files\Microsoft Visual Studio\2022\BuildTools",
+        r"C:\Program Files (x86)\Microsoft Visual Studio\2019\Community",
+        r"C:\Program Files (x86)\Microsoft Visual Studio\2019\Professional",
+        r"C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise",
+        r"C:\Program Files (x86)\Microsoft Visual Studio\2019\BuildTools",
+    ]
+
+    for vs_path in vs_paths:
+        if not os.path.exists(vs_path):
+            continue
+
+        # Search for cl.exe in MSVC tools
+        msvc_path = os.path.join(vs_path, "VC", "Tools", "MSVC")
+        if not os.path.exists(msvc_path):
+            continue
+
+        # Find the latest MSVC version
+        try:
+            versions = sorted(os.listdir(msvc_path), reverse=True)
+            for version in versions:
+                cl_path = os.path.join(msvc_path, version, "bin", "Hostx64", "x64")
+                cl_exe = os.path.join(cl_path, "cl.exe")
+                if os.path.exists(cl_exe):
+                    print(f"Found cl.exe: {cl_exe}")
+                    os.environ["PATH"] = cl_path + ";" + os.environ.get("PATH", "")
+                    return True
+        except (OSError, IOError):
+            continue
+
+    print("Warning: Could not find cl.exe. torch.compile() may not work.")
+    print("Install Visual Studio Build Tools or use Developer PowerShell.")
+    return False
 import torch.nn as nn
 from torch.utils.data import DataLoader
 from torch.optim import AdamW
@@ -467,6 +522,10 @@ def main():
                         help="Pin memory for faster CPU->GPU transfer (use with --workers > 0)")
 
     args = parser.parse_args()
+
+    # Setup Windows compiler for torch.compile() if needed
+    if args.compile:
+        setup_windows_compiler()
 
     # Create config
     experiment_name = args.name or f"hebllm_{args.model}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
