@@ -52,6 +52,14 @@ class Qwen2VLAdapter:
         self.processor = None
         self.peft_model = None
 
+    def _check_flash_attention_available(self) -> bool:
+        """Check if Flash Attention 2 is available."""
+        try:
+            import flash_attn
+            return True
+        except ImportError:
+            return False
+
     def load_model(self):
         """Load the Qwen2-VL model and processor."""
         from transformers import Qwen2VLForConditionalGeneration, AutoProcessor
@@ -69,8 +77,14 @@ class Qwen2VLAdapter:
             "trust_remote_code": True
         }
 
+        # Check if flash attention is requested and available
         if self.use_flash_attention:
-            model_kwargs["attn_implementation"] = "flash_attention_2"
+            if self._check_flash_attention_available():
+                model_kwargs["attn_implementation"] = "flash_attention_2"
+                print("Using Flash Attention 2")
+            else:
+                print("Flash Attention not available, using SDPA (eager) attention")
+                model_kwargs["attn_implementation"] = "sdpa"
 
         self.model = Qwen2VLForConditionalGeneration.from_pretrained(
             self.model_id,
