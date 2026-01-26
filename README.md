@@ -408,6 +408,31 @@ hebrew_text = decoder.decode_text('The word ◆00 means hello')
 
 ## Troubleshooting
 
+### Windows: GPU Not Detected
+
+If you see "GPU requested but not available, using CPU" on Windows with an NVIDIA GPU:
+
+**Option 1: Re-run setup script** (recommended)
+```powershell
+# The setup script auto-detects NVIDIA GPUs and installs CUDA PyTorch
+.\setup_env.ps1 -Clean
+```
+
+**Option 2: Manual PyTorch CUDA installation**
+```powershell
+# Activate your environment first
+.\.venv\Scripts\Activate.ps1
+
+# Uninstall CPU PyTorch and install CUDA version
+pip uninstall torch torchvision torchaudio -y
+pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu124
+
+# Verify CUDA is available
+python -c "import torch; print(f'CUDA available: {torch.cuda.is_available()}'); print(f'GPU: {torch.cuda.get_device_name(0) if torch.cuda.is_available() else None}')"
+```
+
+**Note:** Ensure you have the latest NVIDIA drivers installed. CUDA 12.4 requires driver version 550+.
+
 ### CUDA Out of Memory
 
 Reduce batch size:

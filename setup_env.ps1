@@ -54,9 +54,26 @@ Write-Host "Activating virtual environment..."
 Write-Host "Upgrading pip..."
 & pip install --upgrade pip
 
-# Install dependencies
+# Check for NVIDIA GPU and install appropriate PyTorch
+Write-Host "Checking for NVIDIA GPU..."
+$nvidiaSmi = $null
+try {
+    $nvidiaSmi = & nvidia-smi --query-gpu=name --format=csv,noheader 2>$null
+} catch {}
+
+if ($nvidiaSmi) {
+    Write-Host "NVIDIA GPU detected: $nvidiaSmi" -ForegroundColor Green
+    Write-Host "Installing PyTorch with CUDA support..."
+    # Install PyTorch with CUDA 12.4 (compatible with most recent NVIDIA drivers)
+    & pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu124
+} else {
+    Write-Host "No NVIDIA GPU detected, installing CPU-only PyTorch..." -ForegroundColor Yellow
+    & pip install torch torchvision torchaudio
+}
+
+# Install remaining dependencies
 Write-Host "Installing dependencies..."
-& pip install -r requirements.txt
+& pip install -r requirements.txt --ignore-installed torch
 
 # Install package in development mode (if setup.py or pyproject.toml exists)
 if ((Test-Path "setup.py") -or (Test-Path "pyproject.toml")) {
