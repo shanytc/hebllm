@@ -122,6 +122,21 @@ STAGE2_EPOCHS=15 \
 | `LORA_RANK` | 16 | LoRA adapter rank |
 | `STAGE1_EPOCHS` | 5 | Marker recognition stage |
 | `STAGE2_EPOCHS` | 10 | Marker-to-text stage |
+| `USE_GPU` | true | Use GPU if available (CUDA/MPS) |
+
+**GPU control:**
+
+```bash
+# Enable GPU (default)
+USE_GPU=true ./scripts/train.sh florence2 ./training_data ./output
+
+# Disable GPU (CPU only)
+USE_GPU=false ./scripts/train.sh florence2 ./training_data ./output
+
+# Or use train.py directly with --gpu / --no-gpu flags
+python training/train.py --train-data ./data --gpu       # Use GPU
+python training/train.py --train-data ./data --no-gpu    # Force CPU
+```
 
 **Training stages:**
 

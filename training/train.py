@@ -40,7 +40,8 @@ class HebLLMTrainer:
     def __init__(self,
                  config: HebLLMConfig,
                  model: nn.Module = None,
-                 tokenizer=None):
+                 tokenizer=None,
+                 use_gpu: bool = True):
         """
         Initialize trainer.
 
@@ -48,9 +49,10 @@ class HebLLMTrainer:
             config: Training configuration
             model: Model to train (optional, will create from config)
             tokenizer: Tokenizer for text processing
+            use_gpu: Whether to use GPU if available (default: True)
         """
         self.config = config
-        self.device = self._setup_device()
+        self.device = self._setup_device(use_gpu)
 
         # Create output directories
         self.output_dir = Path(config.output_dir) / config.experiment_name
@@ -89,17 +91,28 @@ class HebLLMTrainer:
         # Logging
         self.train_log = []
 
-    def _setup_device(self) -> torch.device:
-        """Setup training device."""
-        if torch.cuda.is_available():
-            device = torch.device("cuda")
-            print(f"Using CUDA: {torch.cuda.get_device_name()}")
-        elif torch.backends.mps.is_available():
-            device = torch.device("mps")
-            print("Using Apple MPS")
+    def _setup_device(self, use_gpu: bool = True) -> torch.device:
+        """Setup training device.
+
+        Args:
+            use_gpu: Whether to use GPU if available
+
+        Returns:
+            torch.device to use for training
+        """
+        if use_gpu:
+            if torch.cuda.is_available():
+                device = torch.device("cuda")
+                print(f"Using CUDA: {torch.cuda.get_device_name()}")
+            elif torch.backends.mps.is_available():
+                device = torch.device("mps")
+                print("Using Apple MPS")
+            else:
+                device = torch.device("cpu")
+                print("GPU requested but not available, using CPU")
         else:
             device = torch.device("cpu")
-            print("Using CPU")
+            print("Using CPU (GPU disabled)")
         return device
 
     def _init_model(self):
@@ -412,6 +425,12 @@ def main():
     parser.add_argument("--stage1-epochs", type=int, default=5, help="Marker recognition epochs")
     parser.add_argument("--stage2-epochs", type=int, default=10, help="Marker-to-text epochs")
 
+    # Device
+    parser.add_argument("--gpu", action="store_true", default=True,
+                        help="Use GPU if available (default: enabled)")
+    parser.add_argument("--no-gpu", action="store_false", dest="gpu",
+                        help="Disable GPU, use CPU only")
+
     args = parser.parse_args()
 
     # Create config
@@ -438,7 +457,7 @@ def main():
     )
 
     # Create trainer
-    trainer = HebLLMTrainer(config)
+    trainer = HebLLMTrainer(config, use_gpu=args.gpu)
     trainer.setup_data(args.train_data, args.val_data)
 
     # Train

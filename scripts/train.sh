@@ -24,6 +24,9 @@ LORA_RANK=${LORA_RANK:-16}
 STAGE1_EPOCHS=${STAGE1_EPOCHS:-5}
 STAGE2_EPOCHS=${STAGE2_EPOCHS:-10}
 
+# GPU settings (default: enabled)
+USE_GPU=${USE_GPU:-true}
+
 echo "========================================"
 echo "HebLLM Training"
 echo "========================================"
@@ -35,6 +38,7 @@ echo "Batch size:  $BATCH_SIZE"
 echo "LR:          $LR"
 echo "LoRA rank:   $LORA_RANK"
 echo "Curriculum:  Stage1=$STAGE1_EPOCHS, Stage2=$STAGE2_EPOCHS"
+echo "GPU:         $USE_GPU"
 echo "========================================"
 
 # Get script directory
@@ -56,6 +60,14 @@ fi
 # Create output directory
 mkdir -p "$OUTPUT_DIR"
 
+# Build GPU flag
+GPU_FLAG=""
+if [ "$USE_GPU" = "true" ] || [ "$USE_GPU" = "1" ]; then
+    GPU_FLAG="--gpu"
+else
+    GPU_FLAG="--no-gpu"
+fi
+
 # Run training
 python "$PROJECT_DIR/training/train.py" \
     --model "$MODEL" \
@@ -66,7 +78,8 @@ python "$PROJECT_DIR/training/train.py" \
     --lr "$LR" \
     --lora-rank "$LORA_RANK" \
     --stage1-epochs "$STAGE1_EPOCHS" \
-    --stage2-epochs "$STAGE2_EPOCHS"
+    --stage2-epochs "$STAGE2_EPOCHS" \
+    $GPU_FLAG
 
 echo ""
 echo "Training complete!"
