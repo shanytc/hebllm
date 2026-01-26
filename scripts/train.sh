@@ -17,6 +17,7 @@ OUTPUT_DIR=${3:-"./output"}
 # Training parameters (can be overridden via environment)
 EPOCHS=${EPOCHS:-30}
 BATCH_SIZE=${BATCH_SIZE:-4}
+GRAD_ACCUM=${GRAD_ACCUM:-4}
 LR=${LR:-2e-4}
 LORA_RANK=${LORA_RANK:-16}
 
@@ -35,6 +36,7 @@ echo "Data:        $DATA_DIR"
 echo "Output:      $OUTPUT_DIR"
 echo "Epochs:      $EPOCHS"
 echo "Batch size:  $BATCH_SIZE"
+echo "Grad accum:  $GRAD_ACCUM (effective batch: $((BATCH_SIZE * GRAD_ACCUM)))"
 echo "LR:          $LR"
 echo "LoRA rank:   $LORA_RANK"
 echo "Curriculum:  Stage1=$STAGE1_EPOCHS, Stage2=$STAGE2_EPOCHS"
@@ -75,6 +77,7 @@ python "$PROJECT_DIR/training/train.py" \
     --output "$OUTPUT_DIR" \
     --epochs "$EPOCHS" \
     --batch-size "$BATCH_SIZE" \
+    --gradient-accumulation "$GRAD_ACCUM" \
     --lr "$LR" \
     --lora-rank "$LORA_RANK" \
     --stage1-epochs "$STAGE1_EPOCHS" \

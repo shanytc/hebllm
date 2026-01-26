@@ -194,7 +194,8 @@ $env:LORA_RANK="32"; $env:STAGE1_EPOCHS="5"; $env:STAGE2_EPOCHS="15"
 | Parameter | Default | Description |
 |-----------|---------|-------------|
 | `EPOCHS` | 30 | Total training epochs |
-| `BATCH_SIZE` | 4 | Batch size |
+| `BATCH_SIZE` | 4 | Batch size per step |
+| `GRAD_ACCUM` | 4 | Gradient accumulation steps (effective batch = BATCH_SIZE × GRAD_ACCUM) |
 | `LR` | 2e-4 | Learning rate |
 | `LORA_RANK` | 16 | LoRA adapter rank |
 | `STAGE1_EPOCHS` | 5 | Marker recognition stage |
@@ -378,11 +379,18 @@ text = pipeline('document.pdf')
 **If you get CUDA out of memory errors:**
 
 ```bash
-# Reduce batch size
-BATCH_SIZE=1 ./scripts/train.sh qwen2-vl-2b ./training_data ./output
+# Reduce batch size but increase gradient accumulation to maintain effective batch size
+# Effective batch = BATCH_SIZE × GRAD_ACCUM = 1 × 16 = 16
+BATCH_SIZE=1 GRAD_ACCUM=16 ./scripts/train.sh qwen2-vl-2b ./training_data ./output
 
 # Or use a smaller model
 ./scripts/train.sh florence2 ./training_data ./output
+```
+
+```powershell
+# Windows: Same approach
+$env:BATCH_SIZE="1"; $env:GRAD_ACCUM="16"
+.\scripts\train.ps1 -Model qwen2-vl-2b -DataDir ./training_data -OutputDir ./output
 ```
 
 ---

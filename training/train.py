@@ -414,6 +414,8 @@ def main():
     # Training
     parser.add_argument("--epochs", type=int, default=30, help="Number of epochs")
     parser.add_argument("--batch-size", type=int, default=4, help="Batch size")
+    parser.add_argument("--gradient-accumulation", type=int, default=4,
+                        help="Gradient accumulation steps (effective batch = batch-size * gradient-accumulation)")
     parser.add_argument("--lr", type=float, default=2e-4, help="Learning rate")
     parser.add_argument("--lora-rank", type=int, default=16, help="LoRA rank")
 
@@ -441,6 +443,7 @@ def main():
 
     training_config = TrainingConfig(
         batch_size=args.batch_size,
+        gradient_accumulation_steps=args.gradient_accumulation,
         learning_rate=args.lr,
         num_epochs=args.epochs,
         stage1_epochs=args.stage1_epochs,

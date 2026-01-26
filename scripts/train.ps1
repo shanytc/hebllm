@@ -17,6 +17,7 @@ $ErrorActionPreference = "Stop"
 # Training parameters (can be overridden via environment)
 $Epochs = if ($env:EPOCHS) { $env:EPOCHS } else { "30" }
 $BatchSize = if ($env:BATCH_SIZE) { $env:BATCH_SIZE } else { "4" }
+$GradAccum = if ($env:GRAD_ACCUM) { $env:GRAD_ACCUM } else { "4" }
 $LR = if ($env:LR) { $env:LR } else { "2e-4" }
 $LoraRank = if ($env:LORA_RANK) { $env:LORA_RANK } else { "16" }
 
@@ -30,11 +31,13 @@ $UseGpu = if ($env:USE_GPU) { $env:USE_GPU } else { "true" }
 Write-Host "========================================"
 Write-Host "HebLLM Training"
 Write-Host "========================================"
+$EffectiveBatch = [int]$BatchSize * [int]$GradAccum
 Write-Host "Model:       $Model"
 Write-Host "Data:        $DataDir"
 Write-Host "Output:      $OutputDir"
 Write-Host "Epochs:      $Epochs"
 Write-Host "Batch size:  $BatchSize"
+Write-Host "Grad accum:  $GradAccum (effective batch: $EffectiveBatch)"
 Write-Host "LR:          $LR"
 Write-Host "LoRA rank:   $LoraRank"
 Write-Host "Curriculum:  Stage1=$Stage1Epochs, Stage2=$Stage2Epochs"
@@ -73,6 +76,7 @@ $GpuFlag = if ($UseGpu -eq "true" -or $UseGpu -eq "1") { "--gpu" } else { "--no-
     --output $OutputDir `
     --epochs $Epochs `
     --batch-size $BatchSize `
+    --gradient-accumulation $GradAccum `
     --lr $LR `
     --lora-rank $LoraRank `
     --stage1-epochs $Stage1Epochs `
