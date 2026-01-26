@@ -404,7 +404,7 @@ def main():
 
     # Model
     parser.add_argument("--model", default="florence2",
-                        choices=["florence2", "florence2-large", "qwen2-vl-2b"],
+                        choices=["florence2", "florence2-large", "qwen2-vl-2b", "paligemma-3b", "moondream2"],
                         help="Model to train")
 
     # Data

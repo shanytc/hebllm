@@ -292,13 +292,55 @@ text = pipeline('document.pdf')
 
 ## Model Options
 
-| Model | Size | Edge-Ready | Hebrew Support | Use Case |
-|-------|------|------------|----------------|----------|
-| `florence2` | 0.23B | ✅ | After fine-tuning | Default, fast inference |
-| `florence2-large` | 0.77B | ✅ | After fine-tuning | Better accuracy |
-| `qwen2-vl-2b` | 2B | ✅ | Native | Best quality |
+### Available Models
 
-**Recommendation:** Start with `florence2` for edge deployment. Use `qwen2-vl-2b` if quality is insufficient.
+| Model | HuggingFace ID | Size | Edge-Ready | Hebrew | Use Case |
+|-------|----------------|------|------------|--------|----------|
+| `florence2` | `microsoft/Florence-2-base` | 0.23B | ✅ | Fine-tune | Default, fastest inference |
+| `florence2-large` | `microsoft/Florence-2-large` | 0.77B | ✅ | Fine-tune | Better accuracy |
+| `qwen2-vl-2b` | `Qwen/Qwen2-VL-2B-Instruct` | 2B | ✅ | Native | Best quality, multilingual |
+| `paligemma-3b` | `google/paligemma-3b-pt-224` | 3B | ❌ | Native | High quality, larger model |
+| `moondream2` | `vikhyatk/moondream2` | 1.6B | ✅ | Fine-tune | Lightweight alternative |
+
+### Model Details
+
+**florence2** (Recommended for edge deployment)
+- Microsoft's compact vision-language model
+- Optimized for document understanding tasks
+- Requires fine-tuning for Hebrew OCR
+- Best balance of speed and accuracy
+
+**florence2-large**
+- Larger variant with improved accuracy
+- Same architecture, more parameters
+- Good choice when accuracy matters more than speed
+
+**qwen2-vl-2b** (Recommended for quality)
+- Alibaba's multilingual vision-language model
+- Native Hebrew and multilingual support
+- Higher quality outputs, larger model
+- Supports flash attention for faster training
+
+**paligemma-3b**
+- Google's vision-language model
+- Strong multilingual capabilities
+- Not recommended for edge deployment (3B parameters)
+- Best for server-side processing
+
+**moondream2**
+- Lightweight open-source VLM
+- Good for resource-constrained environments
+- Requires fine-tuning for Hebrew
+
+### Choosing a Model
+
+| Requirement | Recommended Model |
+|-------------|-------------------|
+| Edge deployment + speed | `florence2` |
+| Edge deployment + accuracy | `florence2-large` |
+| Best Hebrew quality | `qwen2-vl-2b` |
+| Server-side processing | `paligemma-3b` |
+| Minimal resources | `moondream2` |
 
 ---
 
