@@ -28,6 +28,11 @@ $Stage2Epochs = if ($env:STAGE2_EPOCHS) { $env:STAGE2_EPOCHS } else { "10" }
 # GPU settings (default: enabled)
 $UseGpu = if ($env:USE_GPU) { $env:USE_GPU } else { "true" }
 
+# Performance settings
+$Compile = if ($env:COMPILE) { $env:COMPILE } else { "false" }
+$Workers = if ($env:WORKERS) { $env:WORKERS } else { "0" }
+$PinMemory = if ($env:PIN_MEMORY) { $env:PIN_MEMORY } else { "false" }
+
 Write-Host "========================================"
 Write-Host "HebLLM Training"
 Write-Host "========================================"
@@ -42,6 +47,9 @@ Write-Host "LR:          $LR"
 Write-Host "LoRA rank:   $LoraRank"
 Write-Host "Curriculum:  Stage1=$Stage1Epochs, Stage2=$Stage2Epochs"
 Write-Host "GPU:         $UseGpu"
+Write-Host "Compile:     $Compile"
+Write-Host "Workers:     $Workers"
+Write-Host "Pin memory:  $PinMemory"
 Write-Host "========================================"
 
 # Get script directory
@@ -66,22 +74,32 @@ if (-not (Test-Path $OutputDir)) {
     New-Item -ItemType Directory -Path $OutputDir -Force | Out-Null
 }
 
-# Build GPU flag
+# Build flags
 $GpuFlag = if ($UseGpu -eq "true" -or $UseGpu -eq "1") { "--gpu" } else { "--no-gpu" }
+$CompileFlag = if ($Compile -eq "true" -or $Compile -eq "1") { "--compile" } else { "" }
+$PinMemoryFlag = if ($PinMemory -eq "true" -or $PinMemory -eq "1") { "--pin-memory" } else { "" }
+
+# Build command arguments
+$TrainArgs = @(
+    "--model", $Model,
+    "--train-data", $DataDir,
+    "--output", $OutputDir,
+    "--epochs", $Epochs,
+    "--batch-size", $BatchSize,
+    "--gradient-accumulation", $GradAccum,
+    "--lr", $LR,
+    "--lora-rank", $LoraRank,
+    "--stage1-epochs", $Stage1Epochs,
+    "--stage2-epochs", $Stage2Epochs,
+    "--workers", $Workers,
+    $GpuFlag
+)
+
+if ($CompileFlag) { $TrainArgs += $CompileFlag }
+if ($PinMemoryFlag) { $TrainArgs += $PinMemoryFlag }
 
 # Run training
-& python "$ProjectDir\training\train.py" `
-    --model $Model `
-    --train-data $DataDir `
-    --output $OutputDir `
-    --epochs $Epochs `
-    --batch-size $BatchSize `
-    --gradient-accumulation $GradAccum `
-    --lr $LR `
-    --lora-rank $LoraRank `
-    --stage1-epochs $Stage1Epochs `
-    --stage2-epochs $Stage2Epochs `
-    $GpuFlag
+& python "$ProjectDir\training\train.py" @TrainArgs
 
 Write-Host ""
 Write-Host "Training complete!"

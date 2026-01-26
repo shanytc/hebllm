@@ -28,6 +28,11 @@ STAGE2_EPOCHS=${STAGE2_EPOCHS:-10}
 # GPU settings (default: enabled)
 USE_GPU=${USE_GPU:-true}
 
+# Performance settings
+COMPILE=${COMPILE:-false}
+WORKERS=${WORKERS:-0}
+PIN_MEMORY=${PIN_MEMORY:-false}
+
 echo "========================================"
 echo "HebLLM Training"
 echo "========================================"
@@ -41,6 +46,9 @@ echo "LR:          $LR"
 echo "LoRA rank:   $LORA_RANK"
 echo "Curriculum:  Stage1=$STAGE1_EPOCHS, Stage2=$STAGE2_EPOCHS"
 echo "GPU:         $USE_GPU"
+echo "Compile:     $COMPILE"
+echo "Workers:     $WORKERS"
+echo "Pin memory:  $PIN_MEMORY"
 echo "========================================"
 
 # Get script directory
@@ -62,12 +70,22 @@ fi
 # Create output directory
 mkdir -p "$OUTPUT_DIR"
 
-# Build GPU flag
+# Build flags
 GPU_FLAG=""
 if [ "$USE_GPU" = "true" ] || [ "$USE_GPU" = "1" ]; then
     GPU_FLAG="--gpu"
 else
     GPU_FLAG="--no-gpu"
+fi
+
+COMPILE_FLAG=""
+if [ "$COMPILE" = "true" ] || [ "$COMPILE" = "1" ]; then
+    COMPILE_FLAG="--compile"
+fi
+
+PIN_MEMORY_FLAG=""
+if [ "$PIN_MEMORY" = "true" ] || [ "$PIN_MEMORY" = "1" ]; then
+    PIN_MEMORY_FLAG="--pin-memory"
 fi
 
 # Run training
@@ -82,7 +100,8 @@ python "$PROJECT_DIR/training/train.py" \
     --lora-rank "$LORA_RANK" \
     --stage1-epochs "$STAGE1_EPOCHS" \
     --stage2-epochs "$STAGE2_EPOCHS" \
-    $GPU_FLAG
+    --workers "$WORKERS" \
+    $GPU_FLAG $COMPILE_FLAG $PIN_MEMORY_FLAG
 
 echo ""
 echo "Training complete!"
