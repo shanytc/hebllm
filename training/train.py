@@ -22,55 +22,72 @@ import torch
 
 
 def setup_windows_compiler():
-    """Auto-detect and setup Visual Studio cl.exe on Windows for torch.compile()."""
+    """Auto-detect and setup Visual Studio environment on Windows for torch.compile()."""
     if platform.system() != "Windows":
         return True
 
-    # Check if cl.exe is already in PATH
-    try:
-        subprocess.run(["cl"], capture_output=True, check=False)
+    # Check if VS environment is already set up (INCLUDE var contains VC paths)
+    include_env = os.environ.get("INCLUDE", "")
+    if "Microsoft Visual Studio" in include_env or "MSVC" in include_env:
+        print("Visual Studio environment already configured")
         return True
-    except FileNotFoundError:
-        pass
 
-    print("Searching for Visual Studio cl.exe...")
+    print("Searching for Visual Studio...")
 
     # Common VS installation paths
     vs_paths = [
-        r"C:\Program Files\Microsoft Visual Studio\2022\Community",
-        r"C:\Program Files\Microsoft Visual Studio\2022\Professional",
-        r"C:\Program Files\Microsoft Visual Studio\2022\Enterprise",
-        r"C:\Program Files\Microsoft Visual Studio\2022\BuildTools",
-        r"C:\Program Files (x86)\Microsoft Visual Studio\2019\Community",
-        r"C:\Program Files (x86)\Microsoft Visual Studio\2019\Professional",
-        r"C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise",
-        r"C:\Program Files (x86)\Microsoft Visual Studio\2019\BuildTools",
+        (r"C:\Program Files\Microsoft Visual Studio\2022\Professional", "2022"),
+        (r"C:\Program Files\Microsoft Visual Studio\2022\Community", "2022"),
+        (r"C:\Program Files\Microsoft Visual Studio\2022\Enterprise", "2022"),
+        (r"C:\Program Files\Microsoft Visual Studio\2022\BuildTools", "2022"),
+        (r"C:\Program Files (x86)\Microsoft Visual Studio\2019\Professional", "2019"),
+        (r"C:\Program Files (x86)\Microsoft Visual Studio\2019\Community", "2019"),
+        (r"C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise", "2019"),
+        (r"C:\Program Files (x86)\Microsoft Visual Studio\2019\BuildTools", "2019"),
     ]
 
-    for vs_path in vs_paths:
+    for vs_path, vs_year in vs_paths:
         if not os.path.exists(vs_path):
             continue
 
-        # Search for cl.exe in MSVC tools
-        msvc_path = os.path.join(vs_path, "VC", "Tools", "MSVC")
-        if not os.path.exists(msvc_path):
+        # Try to run vcvarsall.bat to set up the environment
+        vcvarsall = os.path.join(vs_path, "VC", "Auxiliary", "Build", "vcvars64.bat")
+        if not os.path.exists(vcvarsall):
             continue
 
-        # Find the latest MSVC version
+        print(f"Found Visual Studio {vs_year}: {vs_path}")
+        print("Initializing VS environment...")
+
         try:
-            versions = sorted(os.listdir(msvc_path), reverse=True)
-            for version in versions:
-                cl_path = os.path.join(msvc_path, version, "bin", "Hostx64", "x64")
-                cl_exe = os.path.join(cl_path, "cl.exe")
-                if os.path.exists(cl_exe):
-                    print(f"Found cl.exe: {cl_exe}")
-                    os.environ["PATH"] = cl_path + ";" + os.environ.get("PATH", "")
-                    return True
-        except (OSError, IOError):
+            # Run vcvars64.bat and capture the environment
+            cmd = f'"{vcvarsall}" && set'
+            result = subprocess.run(cmd, shell=True, capture_output=True, text=True, check=False)
+
+            if result.returncode == 0:
+                # Parse and apply environment variables
+                for line in result.stdout.splitlines():
+                    if "=" in line:
+                        key, _, value = line.partition("=")
+                        os.environ[key] = value
+
+                print("Visual Studio environment initialized successfully")
+                return True
+        except Exception as e:
+            print(f"Warning: Failed to initialize VS environment: {e}")
             continue
 
-    print("Warning: Could not find cl.exe. torch.compile() may not work.")
-    print("Install Visual Studio Build Tools or use Developer PowerShell.")
+    # Fallback: just add cl.exe to PATH (may not work for torch.compile)
+    print("")
+    print("=" * 60)
+    print("WARNING: Could not initialize full Visual Studio environment.")
+    print("torch.compile() may fail on Windows without proper setup.")
+    print("")
+    print("Options:")
+    print("  1. Run from 'Developer PowerShell for VS 2022'")
+    print("  2. Skip --compile flag (other optimizations still work)")
+    print("=" * 60)
+    print("")
+
     return False
 import torch.nn as nn
 from torch.utils.data import DataLoader
