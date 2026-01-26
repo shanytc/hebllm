@@ -350,6 +350,41 @@ text = pipeline('document.pdf')
 | Server-side processing | `paligemma-3b` |
 | Minimal resources | `moondream2` |
 
+### GPU Requirements
+
+**VRAM requirements for training:**
+
+| Model | Min VRAM | Recommended VRAM | Default Batch Size |
+|-------|----------|------------------|-------------------|
+| `florence2` | 4 GB | 6 GB | 4 |
+| `florence2-large` | 6 GB | 8 GB | 4 |
+| `qwen2-vl-2b` | 10 GB | 16 GB | 4 |
+| `paligemma-3b` | 12 GB | 24 GB | 2 |
+| `moondream2` | 6 GB | 8 GB | 4 |
+
+**Recommended settings by GPU:**
+
+| GPU | VRAM | Recommended Model | Batch Size |
+|-----|------|-------------------|------------|
+| RTX 3060 | 12 GB | `qwen2-vl-2b` | 2 |
+| RTX 3070/3070 Ti | 8 GB | `florence2-large` | 4 |
+| RTX 3080/3090 | 10-24 GB | `qwen2-vl-2b` | 4 |
+| RTX 4060 | 8 GB | `florence2-large` | 4 |
+| RTX 4070/4080 | 12-16 GB | `qwen2-vl-2b` | 4 |
+| RTX 4090 | 24 GB | `paligemma-3b` | 4 |
+| Apple M1/M2 | 8-16 GB | `florence2` | 2-4 |
+| Apple M1/M2 Pro/Max | 16-32 GB | `qwen2-vl-2b` | 2-4 |
+
+**If you get CUDA out of memory errors:**
+
+```bash
+# Reduce batch size
+BATCH_SIZE=1 ./scripts/train.sh qwen2-vl-2b ./training_data ./output
+
+# Or use a smaller model
+./scripts/train.sh florence2 ./training_data ./output
+```
+
 ---
 
 ## Project Structure
