@@ -268,6 +268,7 @@ class CurriculumDataLoader:
                  num_workers: int = 4,
                  transform: Optional[Callable] = None,
                  tokenizer: Optional[Callable] = None,
+                 pin_memory: bool = False,
                  stage_epochs: dict = None):
         """
         Initialize curriculum data loader.
@@ -278,6 +279,7 @@ class CurriculumDataLoader:
             num_workers: DataLoader workers
             transform: Image transforms
             tokenizer: Text tokenizer
+            pin_memory: Pin memory for faster CPU->GPU transfer (CUDA only)
             stage_epochs: Dict mapping stage to (start_epoch, end_epoch)
                 e.g., {"marker_recognition": (0, 5), "marker_to_text": (5, 15), "direct_ocr": (15, 30)}
         """
@@ -286,6 +288,7 @@ class CurriculumDataLoader:
         self.num_workers = num_workers
         self.transform = transform
         self.tokenizer = tokenizer
+        self.pin_memory = pin_memory
 
         self.stage_epochs = stage_epochs or {
             "marker_recognition": (0, 5),
@@ -323,7 +326,7 @@ class CurriculumDataLoader:
                 batch_size=self.batch_size,
                 shuffle=True,
                 num_workers=self.num_workers,
-                pin_memory=False,  # MPS doesn't support pin_memory
+                pin_memory=self.pin_memory,
                 collate_fn=collate_fn
             )
 

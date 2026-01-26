@@ -41,7 +41,8 @@ class HebLLMTrainer:
                  config: HebLLMConfig,
                  model: nn.Module = None,
                  tokenizer=None,
-                 use_gpu: bool = True):
+                 use_gpu: bool = True,
+                 use_compile: bool = False):
         """
         Initialize trainer.
 
@@ -50,8 +51,10 @@ class HebLLMTrainer:
             model: Model to train (optional, will create from config)
             tokenizer: Tokenizer for text processing
             use_gpu: Whether to use GPU if available (default: True)
+            use_compile: Whether to use torch.compile() for faster training
         """
         self.config = config
+        self.use_compile = use_compile
         self.device = self._setup_device(use_gpu)
 
         # Create output directories
@@ -65,6 +68,16 @@ class HebLLMTrainer:
         self.tokenizer = tokenizer
         if model is None:
             self._init_model()
+
+        # Apply torch.compile() for faster training (PyTorch 2.0+)
+        if self.use_compile and self.model is not None:
+            print("Compiling model with torch.compile()...")
+            try:
+                self.model = torch.compile(self.model)
+                print("Model compiled successfully")
+            except Exception as e:
+                print(f"Warning: torch.compile() failed: {e}")
+                print("Continuing without compilation")
 
         # Initialize curriculum scheduler
         self.curriculum = CurriculumScheduler(
@@ -148,9 +161,20 @@ class HebLLMTrainer:
         else:
             raise ValueError(f"Unknown model: {model_name}")
 
-    def setup_data(self, train_dir: str | Path, val_dir: str | Path = None):
-        """Setup data loaders."""
+    def setup_data(self, train_dir: str | Path, val_dir: str | Path = None, pin_memory: bool = False):
+        """Setup data loaders.
+
+        Args:
+            train_dir: Training data directory
+            val_dir: Validation data directory (optional)
+            pin_memory: Pin memory for faster CPU->GPU transfer
+        """
         transforms = get_training_transforms(self.config.model.image_size)
+
+        # Pin memory only makes sense with CUDA and workers > 0
+        use_pin_memory = pin_memory and torch.cuda.is_available()
+        if use_pin_memory:
+            print("Using pinned memory for faster data transfer")
 
         self.curriculum_loader = CurriculumDataLoader(
             data_dir=train_dir,
@@ -158,6 +182,7 @@ class HebLLMTrainer:
             num_workers=self.config.training.dataloader_num_workers,
             transform=transforms,
             tokenizer=self.tokenizer,
+            pin_memory=use_pin_memory,
             stage_epochs={
                 "marker_recognition": (0, self.config.training.stage1_epochs),
                 "marker_to_text": (self.config.training.stage1_epochs,
@@ -433,6 +458,14 @@ def main():
     parser.add_argument("--no-gpu", action="store_false", dest="gpu",
                         help="Disable GPU, use CPU only")
 
+    # Performance
+    parser.add_argument("--compile", action="store_true", default=False,
+                        help="Use torch.compile() for faster training (PyTorch 2.0+)")
+    parser.add_argument("--workers", type=int, default=0,
+                        help="Number of data loader workers (0=main process, try 2-4 for speedup)")
+    parser.add_argument("--pin-memory", action="store_true", default=False,
+                        help="Pin memory for faster CPU->GPU transfer (use with --workers > 0)")
+
     args = parser.parse_args()
 
     # Create config
@@ -448,7 +481,8 @@ def main():
         num_epochs=args.epochs,
         stage1_epochs=args.stage1_epochs,
         stage2_epochs=args.stage2_epochs,
-        stage3_epochs=args.epochs - args.stage1_epochs - args.stage2_epochs
+        stage3_epochs=args.epochs - args.stage1_epochs - args.stage2_epochs,
+        dataloader_num_workers=args.workers
     )
 
     config = HebLLMConfig(
@@ -460,8 +494,8 @@ def main():
     )
 
     # Create trainer
-    trainer = HebLLMTrainer(config, use_gpu=args.gpu)
-    trainer.setup_data(args.train_data, args.val_data)
+    trainer = HebLLMTrainer(config, use_gpu=args.gpu, use_compile=args.compile)
+    trainer.setup_data(args.train_data, args.val_data, pin_memory=args.pin_memory)
 
     # Train
     trainer.train()
