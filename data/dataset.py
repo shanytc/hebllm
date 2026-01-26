@@ -210,6 +210,51 @@ class HebLLMDataset(Dataset):
         return result
 
 
+def collate_fn(batch: list[dict]) -> dict:
+    """Custom collate function for variable-length sequences.
+
+    Pads sequences to the maximum length in the batch.
+    """
+    images = torch.stack([item["image"] for item in batch])
+
+    result = {
+        "images": images,
+        "prompts": [item["prompt"] for item in batch],
+        "targets": [item["target"] for item in batch],
+        "languages": [item["language"] for item in batch],
+        "stages": [item["stage"] for item in batch]
+    }
+
+    # Pad tokenized sequences if present
+    if "prompt_ids" in batch[0]:
+        max_prompt_len = max(item["prompt_ids"].size(0) for item in batch)
+        prompt_ids = torch.zeros(len(batch), max_prompt_len, dtype=torch.long)
+        prompt_mask = torch.zeros(len(batch), max_prompt_len, dtype=torch.bool)
+
+        for i, item in enumerate(batch):
+            length = item["prompt_ids"].size(0)
+            prompt_ids[i, :length] = item["prompt_ids"]
+            prompt_mask[i, :length] = True
+
+        result["prompt_ids"] = prompt_ids
+        result["prompt_attention_mask"] = prompt_mask
+
+    if "target_ids" in batch[0]:
+        max_target_len = max(item["target_ids"].size(0) for item in batch)
+        target_ids = torch.zeros(len(batch), max_target_len, dtype=torch.long)
+        target_mask = torch.zeros(len(batch), max_target_len, dtype=torch.bool)
+
+        for i, item in enumerate(batch):
+            length = item["target_ids"].size(0)
+            target_ids[i, :length] = item["target_ids"]
+            target_mask[i, :length] = True
+
+        result["target_ids"] = target_ids
+        result["target_attention_mask"] = target_mask
+
+    return result
+
+
 class CurriculumDataLoader:
     """
     DataLoader wrapper that supports curriculum learning stages.
@@ -278,55 +323,11 @@ class CurriculumDataLoader:
                 batch_size=self.batch_size,
                 shuffle=True,
                 num_workers=self.num_workers,
-                pin_memory=True
+                pin_memory=False,  # MPS doesn't support pin_memory
+                collate_fn=collate_fn
             )
 
         return self.current_loader
-
-
-def collate_fn(batch: list[dict]) -> dict:
-    """Custom collate function for variable-length sequences.
-
-    Pads sequences to the maximum length in the batch.
-    """
-    images = torch.stack([item["image"] for item in batch])
-
-    result = {
-        "images": images,
-        "prompts": [item["prompt"] for item in batch],
-        "targets": [item["target"] for item in batch],
-        "languages": [item["language"] for item in batch],
-        "stages": [item["stage"] for item in batch]
-    }
-
-    # Pad tokenized sequences if present
-    if "prompt_ids" in batch[0]:
-        max_prompt_len = max(item["prompt_ids"].size(0) for item in batch)
-        prompt_ids = torch.zeros(len(batch), max_prompt_len, dtype=torch.long)
-        prompt_mask = torch.zeros(len(batch), max_prompt_len, dtype=torch.bool)
-
-        for i, item in enumerate(batch):
-            length = item["prompt_ids"].size(0)
-            prompt_ids[i, :length] = item["prompt_ids"]
-            prompt_mask[i, :length] = True
-
-        result["prompt_ids"] = prompt_ids
-        result["prompt_attention_mask"] = prompt_mask
-
-    if "target_ids" in batch[0]:
-        max_target_len = max(item["target_ids"].size(0) for item in batch)
-        target_ids = torch.zeros(len(batch), max_target_len, dtype=torch.long)
-        target_mask = torch.zeros(len(batch), max_target_len, dtype=torch.bool)
-
-        for i, item in enumerate(batch):
-            length = item["target_ids"].size(0)
-            target_ids[i, :length] = item["target_ids"]
-            target_mask[i, :length] = True
-
-        result["target_ids"] = target_ids
-        result["target_attention_mask"] = target_mask
-
-    return result
 
 
 if __name__ == "__main__":

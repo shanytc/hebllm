@@ -196,8 +196,9 @@ class HebLLMTrainer:
             eta_min=self.config.training.learning_rate * 0.1
         )
 
-        # Mixed precision
-        self.scaler = torch.cuda.amp.GradScaler() if self.config.training.fp16 else None
+        # Mixed precision (only for CUDA)
+        self.use_amp = self.config.training.fp16 and torch.cuda.is_available()
+        self.scaler = torch.amp.GradScaler('cuda') if self.use_amp else None
 
     def train_epoch(self, epoch: int) -> float:
         """Train for one epoch.
@@ -223,8 +224,8 @@ class HebLLMTrainer:
             prompts = batch["prompts"]
             targets = batch["targets"]
 
-            # Forward pass with mixed precision
-            with torch.cuda.amp.autocast(enabled=self.config.training.fp16):
+            # Forward pass with mixed precision (CUDA only)
+            with torch.amp.autocast('cuda', enabled=self.use_amp):
                 outputs = self.model(images, prompts, targets, stage=stage)
                 loss = outputs["loss"]
                 loss = loss / self.config.training.gradient_accumulation_steps

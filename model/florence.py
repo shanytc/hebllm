@@ -60,11 +60,13 @@ class Florence2Adapter:
             trust_remote_code=True
         )
 
+        # Use eager attention to avoid SDPA compatibility issues with Florence-2
         self.model = AutoModelForCausalLM.from_pretrained(
             self.model_id,
-            torch_dtype=self.torch_dtype,
+            dtype=self.torch_dtype,
             device_map=self.device,
-            trust_remote_code=True
+            trust_remote_code=True,
+            attn_implementation="eager"
         )
 
         if self.use_lora:
@@ -117,16 +119,19 @@ class Florence2Adapter:
         Returns:
             Dict with model inputs
         """
-        # Florence-2 uses specific task tokens
-        # For OCR: <OCR>, <OCR_WITH_REGION>
-        # For captioning: <CAPTION>, <DETAILED_CAPTION>
+        # Florence-2 uses specific task tokens ONLY (no additional text)
+        # Valid tokens: <OCR>, <OCR_WITH_REGION>, <CAPTION>, <DETAILED_CAPTION>
+        # The processor expects only the task token, nothing else
 
-        # Prepend task token if not present
+        # Ensure prompts are valid task tokens
         processed_prompts = []
         for prompt in prompts:
-            if not prompt.startswith("<"):
-                prompt = f"{task} {prompt}"
-            processed_prompts.append(prompt)
+            # If it's already a task token, use it; otherwise use default task
+            if prompt in ("<OCR>", "<OCR_WITH_REGION>", "<CAPTION>", "<DETAILED_CAPTION>",
+                          "<MORE_DETAILED_CAPTION>", "<OD>", "<DENSE_REGION_CAPTION>"):
+                processed_prompts.append(prompt)
+            else:
+                processed_prompts.append(task)
 
         inputs = self.processor(
             images=images,
@@ -207,6 +212,7 @@ class Florence2Adapter:
                 **inputs,
                 max_new_tokens=max_new_tokens,
                 num_beams=num_beams,
+                use_cache=False,  # Avoid compatibility issues with past_key_values
                 **kwargs
             )
 
@@ -328,16 +334,10 @@ class Florence2ForOCR(nn.Module):
             img_np = (img.permute(1, 2, 0).cpu().numpy() * 255).astype("uint8")
             pil_images.append(Image.fromarray(img_np))
 
-        # Select task token based on stage
-        if stage == "marker_recognition":
-            task = "<OCR>"
-        elif stage == "marker_to_text":
-            task = "<OCR>"  # Custom task, same token
-        else:
-            task = "<OCR>"
-
-        # Add task token to prompts
-        task_prompts = [f"{task} {p}" for p in prompts]
+        # Florence-2 uses only task tokens, not free-form prompts
+        # The task token must be alone (no additional text)
+        task = "<OCR>"
+        task_prompts = [task] * len(pil_images)
 
         outputs = self.adapter.forward(pil_images, task_prompts, targets)
         return {"loss": outputs.loss, "logits": outputs.logits}
@@ -379,9 +379,22 @@ def create_florence2_model(
         "target_modules": ["q_proj", "v_proj", "k_proj", "out_proj", "fc1", "fc2"]
     }
 
+    # Determine dtype based on device
+    # float16 only works well on CUDA, use float32 for CPU and MPS
+    if device == "cpu" or device == "mps":
+        torch_dtype = torch.float32
+    elif device == "auto":
+        # Only use float16 if CUDA is available
+        torch_dtype = torch.float16 if torch.cuda.is_available() else torch.float32
+    elif "cuda" in str(device):
+        torch_dtype = torch.float16
+    else:
+        torch_dtype = torch.float32
+
     adapter = Florence2Adapter(
         model_id=model_id,
         device=device,
+        torch_dtype=torch_dtype,
         use_lora=use_lora,
         lora_config=lora_config
     )

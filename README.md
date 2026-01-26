@@ -34,8 +34,9 @@ python inference/pipeline.py document.pdf --model ./output/best_model
 
 ### Prerequisites
 
-- Python 3.10+
+- Python 3.10-3.13
 - CUDA (optional, for GPU training)
+- Note: GPU (CUDA/MPS) recommended for training; CPU works but is slow
 
 ### Setup Virtual Environment
 

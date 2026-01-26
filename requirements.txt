@@ -8,9 +8,11 @@ pillow>=10.0.0
 
 # Deep learning
 torch>=2.0.0
-transformers>=4.36.0
+transformers>=4.38.0,<5.0.0  # Florence-2 incompatible with transformers 5.x
 peft>=0.7.0
 accelerate>=0.25.0
+timm>=0.9.0  # Required for Florence-2 vision encoder
+einops>=0.7.0  # Required for Florence-2
 
 # Data processing
 numpy>=1.24.0
