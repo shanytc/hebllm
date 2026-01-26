@@ -13,6 +13,7 @@ A vision-language model for OCR on Hebrew, English, and mixed documents. Uses th
 
 ## Quick Start
 
+**Linux/macOS:**
 ```bash
 # 1. Setup
 ./setup_env.sh
@@ -28,6 +29,22 @@ source .venv/bin/activate
 python inference/pipeline.py document.pdf --model ./output/best_model
 ```
 
+**Windows (PowerShell):**
+```powershell
+# 1. Setup
+.\setup_env.ps1
+
+# 2. Generate data
+python data/generator.py --output ./training_data --num-samples 1000
+
+# 3. Train
+python training/train.py --model florence2 --train-data ./training_data --output ./output
+
+# 4. Inference
+.\.venv\Scripts\Activate.ps1
+python inference/pipeline.py document.pdf --model ./output/best_model
+```
+
 ---
 
 ## Installation
@@ -40,9 +57,8 @@ python inference/pipeline.py document.pdf --model ./output/best_model
 
 ### Setup Virtual Environment
 
+**Linux/macOS:**
 ```bash
-cd /Users/shany/Projects/hebllm
-
 # Automatic setup
 ./setup_env.sh
 
@@ -52,10 +68,31 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
+**Windows (PowerShell):**
+```powershell
+# Automatic setup
+.\setup_env.ps1
+
+# Or manual setup
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+```
+
+**Clean reinstall (remove and recreate .venv):**
+```bash
+./setup_env.sh --clean    # Linux/macOS
+.\setup_env.ps1 -Clean    # Windows
+```
+
 ### Verify Installation
 
 ```bash
+# Linux/macOS
 source .venv/bin/activate
+
+# Windows: .\.venv\Scripts\Activate.ps1
+
 python -c "import torch; print(f'PyTorch: {torch.__version__}')"
 python -c "import transformers; print(f'Transformers: {transformers.__version__}')"
 ```
@@ -245,7 +282,8 @@ hebllm/
 │   └── evaluate.sh       # Evaluation script
 ├── hebmark.py            # HebMark marker system
 ├── hebrew_box_detector.py # Hebrew text detection
-├── setup_env.sh          # Environment setup
+├── setup_env.sh          # Environment setup (Linux/macOS)
+├── setup_env.ps1         # Environment setup (Windows)
 └── requirements.txt      # Dependencies
 ```
 
