@@ -433,6 +433,23 @@ python -c "import torch; print(f'CUDA available: {torch.cuda.is_available()}'); 
 
 **Note:** Ensure you have the latest NVIDIA drivers installed. CUDA 12.4 requires driver version 550+.
 
+### Windows: torch_cuda.dll Error
+
+If you see `OSError: [WinError 127] Error loading torch_cuda.dll`:
+
+```powershell
+# This usually means CUDA version mismatch. Try CUDA 11.8 (most compatible):
+.\.venv\Scripts\Activate.ps1
+pip uninstall torch torchvision torchaudio -y
+pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
+
+# Verify it works
+python -c "import torch; print(torch.cuda.is_available())"
+```
+
+If still failing, install Visual C++ Redistributable:
+- Download from: https://aka.ms/vs/17/release/vc_redist.x64.exe
+
 ### CUDA Out of Memory
 
 Reduce batch size:
