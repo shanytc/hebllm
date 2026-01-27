@@ -64,25 +64,48 @@ class HebLLMDataset(Dataset):
         self._build_index()
 
     def _build_index(self):
-        """Build index of available samples."""
+        """Build index of available samples.
+
+        For stages 1-2 (marker_recognition, marker_to_text), only includes
+        samples that have markers. For stage 3 (direct_ocr), includes all samples.
+        """
         self.samples = []
 
         images_dir = self.data_dir / "images"
         metadata_dir = self.data_dir / "metadata"
+        mappings_dir = self.data_dir / "mappings"
+        marked_images_dir = self.data_dir / "marked_images"
 
         if not images_dir.exists():
             return
+
+        # For curriculum stages 1-2, we need samples with markers
+        require_markers = self.stage in ("marker_recognition", "marker_to_text")
 
         for img_path in sorted(images_dir.glob("sample_*.png")):
             idx = img_path.stem.split("_")[1]
             meta_path = metadata_dir / f"sample_{idx}.json"
 
-            if meta_path.exists():
-                self.samples.append({
-                    "index": idx,
-                    "image_path": img_path,
-                    "metadata_path": meta_path
-                })
+            if not meta_path.exists():
+                continue
+
+            # Check if sample has markers (for stages 1-2)
+            if require_markers:
+                mapping_path = mappings_dir / f"sample_{idx}_mapping.json"
+                marked_path = marked_images_dir / f"sample_{idx}_marked.png"
+
+                # Skip samples without markers
+                if not mapping_path.exists() or not marked_path.exists():
+                    continue
+
+            self.samples.append({
+                "index": idx,
+                "image_path": img_path,
+                "metadata_path": meta_path
+            })
+
+        if require_markers:
+            print(f"Stage '{self.stage}': Using {len(self.samples)} samples with markers")
 
     def __len__(self) -> int:
         return len(self.samples)
