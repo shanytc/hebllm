@@ -335,31 +335,26 @@ class Qwen2VLForOCR(nn.Module):
                 prompts: list[str],
                 targets: list[str],
                 stage: str = "direct_ocr") -> dict:
-        """Forward pass for training."""
+        """Forward pass for training.
+
+        Args:
+            images: Batch of images (B, C, H, W)
+            prompts: List of prompts (already formatted by dataset for each stage)
+            targets: List of target texts
+            stage: Training stage (for logging only, prompts come from dataset)
+
+        Returns:
+            Dict with loss
+        """
         # Convert tensor images to PIL
         pil_images = []
         for img in images:
             img_np = (img.permute(1, 2, 0).cpu().numpy() * 255).astype("uint8")
             pil_images.append(Image.fromarray(img_np))
 
-        # Format prompts based on stage
-        if stage == "marker_recognition":
-            formatted_prompts = [
-                f"Identify all visual markers (◆XX format) visible in this document image. List them in reading order. {p}"
-                for p in prompts
-            ]
-        elif stage == "marker_to_text":
-            formatted_prompts = [
-                f"This document contains markers that map to Hebrew text. {p} Transcribe the full document text."
-                for p in prompts
-            ]
-        else:
-            formatted_prompts = [
-                f"Transcribe all text from this document image, including both Hebrew and English text. {p}"
-                for p in prompts
-            ]
-
-        outputs = self.adapter.forward(pil_images, formatted_prompts, targets)
+        # Use prompts directly from dataset - they're already properly formatted
+        # for each curriculum stage (marker_recognition, marker_to_text, direct_ocr)
+        outputs = self.adapter.forward(pil_images, prompts, targets)
         return {"loss": outputs.loss, "logits": outputs.logits}
 
     def generate(self, images: torch.Tensor, prompts: list[str] = None, **kwargs) -> list[str]:
