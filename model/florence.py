@@ -204,8 +204,9 @@ class Florence2Adapter:
             prompts = [prompts] * len(images)
 
         device = next(model.parameters()).device
+        dtype = next(model.parameters()).dtype
         inputs = self.prepare_inputs(images, prompts)
-        inputs = {k: v.to(device) for k, v in inputs.items()}
+        inputs = {k: v.to(device=device, dtype=dtype) if v.is_floating_point() else v.to(device) for k, v in inputs.items()}
 
         with torch.no_grad():
             generated_ids = model.generate(
@@ -274,13 +275,16 @@ class Florence2Adapter:
 
             base_model = AutoModelForCausalLM.from_pretrained(
                 base_model_id,
-                torch_dtype=adapter.torch_dtype,
+                dtype=adapter.torch_dtype,
                 device_map=adapter.device,
-                trust_remote_code=True
+                trust_remote_code=True,
+                attn_implementation="eager"
             )
 
             adapter.peft_model = PeftModel.from_pretrained(base_model, model_dir)
             adapter.model = base_model
+            print(f"LoRA adapter loaded from {model_dir}")
+            print(f"LoRA modules: {[name for name, _ in adapter.peft_model.named_modules() if 'lora' in name.lower()][:5]}...")
         else:
             # Load full model
             adapter.processor = AutoProcessor.from_pretrained(
@@ -288,9 +292,10 @@ class Florence2Adapter:
             )
             adapter.model = AutoModelForCausalLM.from_pretrained(
                 model_dir,
-                torch_dtype=adapter.torch_dtype,
+                dtype=adapter.torch_dtype,
                 device_map=adapter.device,
-                trust_remote_code=True
+                trust_remote_code=True,
+                attn_implementation="eager"
             )
 
         return adapter
