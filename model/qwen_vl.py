@@ -241,24 +241,31 @@ class Qwen2VLAdapter:
             input_ids = inputs["input_ids"]
             labels_tensor = input_ids.clone()
 
-            # Find assistant marker token to locate where response starts
-            # Qwen2-VL uses <|im_start|>assistant pattern
-            # Token ID for "assistant" after <|im_start|> is typically 77091
-            # But we can find it by looking for the pattern
-            assistant_token_id = self.processor.tokenizer.convert_tokens_to_ids("assistant")
+            # Batch tokenize all labels to get their lengths (fast - text only, no images)
+            label_encodings = self.processor.tokenizer(
+                labels,
+                add_special_tokens=False,
+                padding=False,
+                return_length=True
+            )
 
+            # Mask everything except the response tokens at the end
+            pad_token_id = self.processor.tokenizer.pad_token_id
             for i in range(input_ids.shape[0]):
-                # Find the last occurrence of assistant token (marks start of response)
-                seq = input_ids[i]
-                assistant_positions = (seq == assistant_token_id).nonzero(as_tuple=True)[0]
+                label_len = label_encodings["length"][i]
+                # Find sequence length (excluding padding)
+                if pad_token_id is not None:
+                    seq_len = (input_ids[i] != pad_token_id).sum().item()
+                else:
+                    seq_len = input_ids.shape[1]
 
-                if len(assistant_positions) > 0:
-                    # Mask everything up to and including the assistant token + newline
-                    response_start = assistant_positions[-1].item() + 2  # +2 to skip "assistant\n"
-                    labels_tensor[i, :response_start] = -100
+                # Mask everything except last (label_len + 1) tokens (+1 for EOS)
+                # The response is at the end of the sequence
+                prompt_len = seq_len - label_len - 1
+                if prompt_len > 0:
+                    labels_tensor[i, :prompt_len] = -100
 
             # Also mask padding tokens
-            pad_token_id = self.processor.tokenizer.pad_token_id
             if pad_token_id is not None:
                 labels_tensor[input_ids == pad_token_id] = -100
 
