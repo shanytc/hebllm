@@ -68,7 +68,10 @@ class Qwen2VLAdapter:
 
         self.processor = AutoProcessor.from_pretrained(
             self.model_id,
-            trust_remote_code=True
+            trust_remote_code=True,
+            # Limit image resolution for faster processing
+            min_pixels=256 * 28 * 28,   # ~200K pixels
+            max_pixels=512 * 28 * 28,   # ~400K pixels (instead of default 1280*28*28)
         )
 
         model_kwargs = {
@@ -83,7 +86,7 @@ class Qwen2VLAdapter:
                 model_kwargs["attn_implementation"] = "flash_attention_2"
                 print("Using Flash Attention 2")
             else:
-                print("Flash Attention not available, using SDPA (eager) attention")
+                print("Flash Attention not available, using SDPA attention")
                 model_kwargs["attn_implementation"] = "sdpa"
 
         self.model = Qwen2VLForConditionalGeneration.from_pretrained(
@@ -94,6 +97,7 @@ class Qwen2VLAdapter:
         if self.use_lora:
             self._apply_lora()
 
+        print(f"Image resolution: {self.processor.image_processor.min_pixels}-{self.processor.image_processor.max_pixels} pixels")
         return self
 
     def _apply_lora(self):
@@ -236,26 +240,27 @@ class Qwen2VLAdapter:
             input_ids = inputs["input_ids"]
             labels_tensor = input_ids.clone()
 
-            # Find where assistant response starts and mask everything before
-            # The assistant token pattern varies, but we can find the response by
-            # looking for the last occurrence of assistant marker
-            for i, (prompt, label) in enumerate(zip(prompts, labels)):
-                # Tokenize just the label to find its length
-                label_tokens = self.processor.tokenizer(
-                    label,
-                    add_special_tokens=False,
-                    return_tensors="pt"
-                )["input_ids"]
-                label_len = label_tokens.shape[1]
+            # Find assistant marker token to locate where response starts
+            # Qwen2-VL uses <|im_start|>assistant pattern
+            # Token ID for "assistant" after <|im_start|> is typically 77091
+            # But we can find it by looking for the pattern
+            assistant_token_id = self.processor.tokenizer.convert_tokens_to_ids("assistant")
 
-                # Mask everything except the last label_len tokens (plus some buffer for EOS)
-                seq_len = (input_ids[i] != self.processor.tokenizer.pad_token_id).sum().item()
-                mask_len = seq_len - label_len - 1  # -1 for EOS token
-                if mask_len > 0:
-                    labels_tensor[i, :mask_len] = -100
+            for i in range(input_ids.shape[0]):
+                # Find the last occurrence of assistant token (marks start of response)
+                seq = input_ids[i]
+                assistant_positions = (seq == assistant_token_id).nonzero(as_tuple=True)[0]
+
+                if len(assistant_positions) > 0:
+                    # Mask everything up to and including the assistant token + newline
+                    response_start = assistant_positions[-1].item() + 2  # +2 to skip "assistant\n"
+                    labels_tensor[i, :response_start] = -100
 
             # Also mask padding tokens
-            labels_tensor[input_ids == self.processor.tokenizer.pad_token_id] = -100
+            pad_token_id = self.processor.tokenizer.pad_token_id
+            if pad_token_id is not None:
+                labels_tensor[input_ids == pad_token_id] = -100
+
             inputs["labels"] = labels_tensor
 
         else:
