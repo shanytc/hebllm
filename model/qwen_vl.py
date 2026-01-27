@@ -69,10 +69,10 @@ class Qwen2VLAdapter:
         self.processor = AutoProcessor.from_pretrained(
             self.model_id,
             trust_remote_code=True,
-            # Limit image resolution for faster processing
-            # 28x28 is the patch size, so 128 patches = ~100K pixels (~316x316 image)
-            min_pixels=64 * 28 * 28,    # ~50K pixels (~224x224)
-            max_pixels=128 * 28 * 28,   # ~100K pixels (~316x316)
+            # Limit image resolution - balance between speed and OCR quality
+            # Default is 1280*28*28 which is too large
+            min_pixels=256 * 28 * 28,   # ~200K pixels (~448x448)
+            max_pixels=512 * 28 * 28,   # ~400K pixels (~634x634)
         )
 
         model_kwargs = {
