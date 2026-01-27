@@ -70,8 +70,9 @@ class Qwen2VLAdapter:
             self.model_id,
             trust_remote_code=True,
             # Limit image resolution for faster processing
-            min_pixels=256 * 28 * 28,   # ~200K pixels
-            max_pixels=512 * 28 * 28,   # ~400K pixels (instead of default 1280*28*28)
+            # 28x28 is the patch size, so 128 patches = ~100K pixels (~316x316 image)
+            min_pixels=64 * 28 * 28,    # ~50K pixels (~224x224)
+            max_pixels=128 * 28 * 28,   # ~100K pixels (~316x316)
         )
 
         model_kwargs = {
