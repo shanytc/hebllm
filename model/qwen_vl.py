@@ -190,20 +190,78 @@ class Qwen2VLAdapter:
         """
         model = self.get_model()
         device = next(model.parameters()).device
-
-        inputs = self.prepare_inputs(images, prompts)
-        inputs = {k: v.to(device) for k, v in inputs.items()}
+        dtype = next(model.parameters()).dtype
 
         if labels is not None:
-            # Create labels from target text
-            label_inputs = self.processor.tokenizer(
-                labels,
+            # For training: create full conversation with response included
+            # Labels must be aligned with input_ids (same length)
+            messages_batch = []
+            for image, prompt, label in zip(images, prompts, labels):
+                messages = [
+                    {
+                        "role": "user",
+                        "content": [
+                            {"type": "image", "image": image},
+                            {"type": "text", "text": prompt}
+                        ]
+                    },
+                    {
+                        "role": "assistant",
+                        "content": [
+                            {"type": "text", "text": label}
+                        ]
+                    }
+                ]
+                messages_batch.append(messages)
+
+            # Process with labels included
+            texts = []
+            for messages in messages_batch:
+                text = self.processor.apply_chat_template(
+                    messages,
+                    tokenize=False,
+                    add_generation_prompt=False  # Response already included
+                )
+                texts.append(text)
+
+            inputs = self.processor(
+                text=texts,
+                images=images,
                 return_tensors="pt",
-                padding=True,
-                truncation=True,
-                max_length=2048
+                padding=True
             )
-            inputs["labels"] = label_inputs["input_ids"].to(device)
+            inputs = {k: v.to(device=device, dtype=dtype) if v.is_floating_point() else v.to(device) for k, v in inputs.items()}
+
+            # Create labels: copy input_ids but mask the prompt portion with -100
+            input_ids = inputs["input_ids"]
+            labels_tensor = input_ids.clone()
+
+            # Find where assistant response starts and mask everything before
+            # The assistant token pattern varies, but we can find the response by
+            # looking for the last occurrence of assistant marker
+            for i, (prompt, label) in enumerate(zip(prompts, labels)):
+                # Tokenize just the label to find its length
+                label_tokens = self.processor.tokenizer(
+                    label,
+                    add_special_tokens=False,
+                    return_tensors="pt"
+                )["input_ids"]
+                label_len = label_tokens.shape[1]
+
+                # Mask everything except the last label_len tokens (plus some buffer for EOS)
+                seq_len = (input_ids[i] != self.processor.tokenizer.pad_token_id).sum().item()
+                mask_len = seq_len - label_len - 1  # -1 for EOS token
+                if mask_len > 0:
+                    labels_tensor[i, :mask_len] = -100
+
+            # Also mask padding tokens
+            labels_tensor[input_ids == self.processor.tokenizer.pad_token_id] = -100
+            inputs["labels"] = labels_tensor
+
+        else:
+            # Inference mode
+            inputs = self.prepare_inputs(images, prompts)
+            inputs = {k: v.to(device=device, dtype=dtype) if v.is_floating_point() else v.to(device) for k, v in inputs.items()}
 
         outputs = model(**inputs)
         return outputs
