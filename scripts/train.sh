@@ -6,6 +6,9 @@
 #
 # Example:
 #   ./scripts/train.sh florence2 ./training_data ./output
+#
+# Resume training:
+#   RESUME="output/hebllm_qwen2-vl-2b_.../checkpoints/model_epoch_2" ./scripts/train.sh qwen2-vl-2b
 
 set -e
 
@@ -33,6 +36,9 @@ COMPILE=${COMPILE:-false}
 WORKERS=${WORKERS:-0}
 PIN_MEMORY=${PIN_MEMORY:-false}
 
+# Resume from checkpoint
+RESUME=${RESUME:-""}
+
 echo "========================================"
 echo "HebLLM Training"
 echo "========================================"
@@ -49,6 +55,7 @@ echo "GPU:         $USE_GPU"
 echo "Compile:     $COMPILE"
 echo "Workers:     $WORKERS"
 echo "Pin memory:  $PIN_MEMORY"
+if [ -n "$RESUME" ]; then echo "Resume:      $RESUME"; fi
 echo "========================================"
 
 # Get script directory
@@ -88,6 +95,11 @@ if [ "$PIN_MEMORY" = "true" ] || [ "$PIN_MEMORY" = "1" ]; then
     PIN_MEMORY_FLAG="--pin-memory"
 fi
 
+RESUME_FLAG=""
+if [ -n "$RESUME" ]; then
+    RESUME_FLAG="--resume $RESUME"
+fi
+
 # Run training
 python "$PROJECT_DIR/training/train.py" \
     --model "$MODEL" \
@@ -101,7 +113,7 @@ python "$PROJECT_DIR/training/train.py" \
     --stage1-epochs "$STAGE1_EPOCHS" \
     --stage2-epochs "$STAGE2_EPOCHS" \
     --workers "$WORKERS" \
-    $GPU_FLAG $COMPILE_FLAG $PIN_MEMORY_FLAG
+    $GPU_FLAG $COMPILE_FLAG $PIN_MEMORY_FLAG $RESUME_FLAG
 
 echo ""
 echo "Training complete!"

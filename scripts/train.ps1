@@ -5,6 +5,10 @@
 #
 # Example:
 #   .\scripts\train.ps1 florence2 ./training_data ./output
+#
+# Resume training:
+#   $env:RESUME = "output\hebllm_qwen2-vl-2b_...\checkpoints\model_epoch_2"
+#   .\scripts\train.ps1 qwen2-vl-2b ./training_data ./output
 
 param(
     [string]$Model = "florence2",
@@ -33,6 +37,9 @@ $Compile = if ($env:COMPILE) { $env:COMPILE } else { "false" }
 $Workers = if ($env:WORKERS) { $env:WORKERS } else { "0" }
 $PinMemory = if ($env:PIN_MEMORY) { $env:PIN_MEMORY } else { "false" }
 
+# Resume from checkpoint
+$Resume = if ($env:RESUME) { $env:RESUME } else { "" }
+
 Write-Host "========================================"
 Write-Host "HebLLM Training"
 Write-Host "========================================"
@@ -50,6 +57,7 @@ Write-Host "GPU:         $UseGpu"
 Write-Host "Compile:     $Compile"
 Write-Host "Workers:     $Workers"
 Write-Host "Pin memory:  $PinMemory"
+if ($Resume) { Write-Host "Resume:      $Resume" }
 Write-Host "========================================"
 
 # Get script directory
@@ -97,6 +105,7 @@ $TrainArgs = @(
 
 if ($CompileFlag) { $TrainArgs += $CompileFlag }
 if ($PinMemoryFlag) { $TrainArgs += $PinMemoryFlag }
+if ($Resume) { $TrainArgs += "--resume"; $TrainArgs += $Resume }
 
 # Run training
 & python "$ProjectDir\training\train.py" @TrainArgs
