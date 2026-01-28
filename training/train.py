@@ -465,6 +465,42 @@ class HebLLMTrainer:
 
         print(f"Checkpoint saved: epoch {epoch}, loss {loss:.4f}")
 
+    def load_checkpoint(self, checkpoint_dir: str | Path):
+        """Load training checkpoint to resume training.
+
+        Args:
+            checkpoint_dir: Path to checkpoint directory (e.g., output/.../checkpoints/model_epoch_2)
+        """
+        from peft import PeftModel
+
+        checkpoint_dir = Path(checkpoint_dir)
+
+        # Find the checkpoint metadata
+        epoch_num = int(checkpoint_dir.name.split("_")[-1])
+        meta_path = checkpoint_dir.parent / f"checkpoint_epoch_{epoch_num}.json"
+
+        if meta_path.exists():
+            with open(meta_path, "r") as f:
+                meta = json.load(f)
+            self.current_epoch = meta["epoch"] + 1  # Resume from next epoch
+            self.global_step = meta.get("global_step", 0)
+            self.best_loss = meta.get("loss", float("inf"))
+            print(f"Loaded checkpoint metadata: epoch {meta['epoch']}, loss {meta['loss']:.4f}")
+        else:
+            # Guess from directory name
+            self.current_epoch = epoch_num + 1
+            print(f"Resuming from epoch {self.current_epoch}")
+
+        # Load model weights (LoRA adapter)
+        if checkpoint_dir.exists() and (checkpoint_dir / "adapter_config.json").exists():
+            # Load LoRA weights into existing model
+            base_model = self.model.adapter.model
+            self.model.adapter.peft_model = PeftModel.from_pretrained(base_model, checkpoint_dir)
+            self.model.adapter.model = base_model
+            print(f"Loaded LoRA weights from {checkpoint_dir}")
+        else:
+            print(f"Warning: Could not find adapter weights in {checkpoint_dir}")
+
     def train(self):
         """Run full training loop."""
         print(f"Starting training: {self.config.experiment_name}")
@@ -559,6 +595,10 @@ def main():
     parser.add_argument("--pin-memory", action="store_true", default=False,
                         help="Pin memory for faster CPU->GPU transfer (use with --workers > 0)")
 
+    # Resume
+    parser.add_argument("--resume", default=None,
+                        help="Path to checkpoint to resume from (e.g., output/.../checkpoints/model_epoch_2)")
+
     args = parser.parse_args()
 
     # Setup Windows compiler for torch.compile() if needed
@@ -603,6 +643,10 @@ def main():
     # Create trainer
     trainer = HebLLMTrainer(config, use_gpu=args.gpu, use_compile=args.compile)
     trainer.setup_data(args.train_data, args.val_data, pin_memory=args.pin_memory)
+
+    # Resume from checkpoint if specified
+    if args.resume:
+        trainer.load_checkpoint(args.resume)
 
     # Train
     trainer.train()
