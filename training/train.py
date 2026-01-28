@@ -471,7 +471,7 @@ class HebLLMTrainer:
         Args:
             checkpoint_dir: Path to checkpoint directory (e.g., output/.../checkpoints/model_epoch_2)
         """
-        from peft import PeftModel
+        import safetensors.torch
 
         checkpoint_dir = Path(checkpoint_dir)
 
@@ -491,15 +491,22 @@ class HebLLMTrainer:
             self.current_epoch = epoch_num + 1
             print(f"Resuming from epoch {self.current_epoch}")
 
-        # Load model weights (LoRA adapter)
-        if checkpoint_dir.exists() and (checkpoint_dir / "adapter_config.json").exists():
-            # Load LoRA weights into existing model
-            base_model = self.model.adapter.model
-            self.model.adapter.peft_model = PeftModel.from_pretrained(base_model, checkpoint_dir)
-            self.model.adapter.model = base_model
-            print(f"Loaded LoRA weights from {checkpoint_dir}")
+        # Load LoRA weights directly into existing peft_model
+        adapter_weights_path = checkpoint_dir / "adapter_model.safetensors"
+        if adapter_weights_path.exists():
+            # Load safetensors weights directly
+            state_dict = safetensors.torch.load_file(str(adapter_weights_path))
+            self.model.adapter.peft_model.load_state_dict(state_dict, strict=False)
+            print(f"Loaded LoRA weights from {adapter_weights_path}")
         else:
-            print(f"Warning: Could not find adapter weights in {checkpoint_dir}")
+            # Try .bin format
+            adapter_weights_path = checkpoint_dir / "adapter_model.bin"
+            if adapter_weights_path.exists():
+                state_dict = torch.load(adapter_weights_path, map_location=self.device)
+                self.model.adapter.peft_model.load_state_dict(state_dict, strict=False)
+                print(f"Loaded LoRA weights from {adapter_weights_path}")
+            else:
+                print(f"Warning: Could not find adapter weights in {checkpoint_dir}")
 
     def train(self):
         """Run full training loop."""
